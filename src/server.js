@@ -8,7 +8,7 @@ const app = express();
 app.use(express.static(path.join(__dirname, '/build')));
 app.use(bodyParser.json());
 
-const withDB = async (operations, res) => {
+const withDBm = async (operations, res) => {
     try {
         const client = await MongoClient.connect('mongodb://localhost:27017', { useNewUrlParser: true });
         const db = client.db('my-blog');
@@ -21,8 +21,29 @@ const withDB = async (operations, res) => {
     }
 }
 
+const withDBa = async (operations, res) => {
+    try {
+        const client = await MongoClient.connect('mongodb://localhost:27017', { useNewUrlParser: true });
+        const db = client.db('schedule');
+    
+        await operations(db);
+    
+        client.close();
+    } catch (error) {
+        res.status(500).json({ message: 'Error connecting to db', error });
+    }
+}
+
+app.get('/api/schedule', async (req, res) => {
+    withDBa(async (db) => {
+        const appointments = await db.collection('appointments').find({}).toArray()
+        res.status(200).json(appointments);
+    }, res);
+})
+
+
 app.get('/api/articles/:name', async (req, res) => {
-    withDB(async (db) => {
+    withDBm(async (db) => {
 
         const articleName = req.params.name;
 
@@ -33,7 +54,7 @@ app.get('/api/articles/:name', async (req, res) => {
 
 
 app.post('/api/articles/:name/upvote', async (req, res) => {
-    withDB(async (db) => {
+    withDBm(async (db) => {
         const articleName = req.params.name;
     
         const articleInfo = await db.collection('articles').findOne({ name: articleName });
@@ -52,7 +73,7 @@ app.post('/api/articles/:name/add-comment', (req, res) => {
     const { username, text } = req.body;
     const articleName = req.params.name;
 
-    withDB(async (db) => {
+    withDBm(async (db) => {
         const articleInfo = await db.collection('articles').findOne({ name: articleName })
         await db.collection('articles').updateOne({name: articleName}, {
             '$set': {
